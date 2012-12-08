@@ -224,7 +224,7 @@ class Database(object):
 	def get_suitearches(self):
 		try:
 			cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-			cur.execute("SELECT id,suite_id,arch_id FROM suitearches ORDER BY id")
+			cur.execute("SELECT id,suite_id,arch_id,master_weight FROM suitearches ORDER BY id")
 			res = cur.fetchall()
 			self.conn.commit()
 
@@ -241,7 +241,7 @@ class Database(object):
 	def get_suitearch_id(self,suitearch_id):
 		try:
 			cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-			cur.execute("SELECT id,suite_id,arch_id FROM suitearches WHERE id=%s",(suitearch_id,))
+			cur.execute("SELECT id,suite_id,arch_id,master_weight FROM suitearches WHERE id=%s",(suitearch_id,))
 			res = cur.fetchall()
 			self.conn.commit()
 			suitearch = SuiteArch(res[0]['id'],self.get_suite_id(res[0]['suite_id']),self.get_arch_id(res[0]['arch_id']))
@@ -252,13 +252,13 @@ class Database(object):
 			raise Exception("Error retrieving suite arch with id:" + str(suitearch_id) + ". Database error code: "  + str(e.pgcode) + " - Details: " + str(e.pgerror))
 			return None
 
-	def put_suitearch(self,suite_id,arch_id):
+	def put_suitearch(self,suite_id,arch_id,master_weight = 0):
 		try:
 			cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-			cur.execute("INSERT into suitearches(suite_id,arch_id) VALUES (%s, %s) RETURNING id",(remove_nasties(suite_id),remove_nasties(arch_id)))
+			cur.execute("INSERT into suitearches(suite_id,arch_id,master_weight) VALUES (%s, %s, %s) RETURNING id",(remove_nasties(suite_id),remove_nasties(arch_id),remove_nasties(master_weight)))
 			res = cur.fetchall()
 			self.conn.commit()
-			suitearch = SuiteArch(res[0]['id'],self.get_suite_id(suite_id),self.get_arch_id(arch_id))
+			suitearch = SuiteArch(res[0]['id'],self.get_suite_id(suite_id),self.get_arch_id(arch_id),master_weight)
 			cur.close()
 			return suitearch
 		except psycopg2.Error as e:
@@ -1292,7 +1292,7 @@ class Database(object):
 		try:
 			if suite :
 				cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-				cur.execute("SELECT arch.id, arch.name FROM suite LEFT JOIN suitearches ON suite.id=suite_id LEFT JOIN arch ON arch_id = arch.id WHERE suite.name=%s",[suite])
+				cur.execute("SELECT arch.id, arch.name, suitearches.master_weight FROM suite LEFT JOIN suitearches ON suite.id=suite_id LEFT JOIN arch ON arch_id = arch.id WHERE suite.name=%s ORDER BY master_weight DESC, random()",[suite])
 				res = cur.fetchall()
 				self.conn.commit()
 

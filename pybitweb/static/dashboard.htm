@@ -5,7 +5,7 @@
         <META HTTP-EQUIV="Expires" CONTENT="-1">
         <meta http-equiv='refresh' content='30';URL='job.htm'>
         <meta charset="utf-8">
-        <title>pyBit - Jobs </title>
+        <title>pyBit - Dashboard </title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="">
         <meta name="author" content="">
@@ -105,7 +105,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <th>ID</th><th>Package</th><th>Version</th><th>Arch</th><th>Suite</th><th>Buildclient</th><th>Status</th>
+                                <th>ID</th><th>Package</th><th>Version</th><th>Arch</th><th>Suite</th><th>Buildclient</th><th>Master</th><th>Status</th>
                             </tr>
                         </tbody>
                     </table>
@@ -134,10 +134,6 @@
                         if ( status == "Failed" )
                         {
                             return "error";
-                        }
-                        else
-                        {
-                            return "warning";
                         }
                     }
 
@@ -179,6 +175,10 @@
                                         statuses.push ( field2.status );
                                     } );
                                     jobstatuses [ field.id ] = statuses [ statuses.length - 1 ];
+                                    master = "";
+                                    if (field.packageinstance.master) {
+                                    	master = "\u2714";
+                                    }
                                     if ( field.buildclient )
                                     {
                                         bid = field.buildclient.id;
@@ -187,17 +187,17 @@
                                         shortname = bname.replace ( "build_client_" , "" );
                                         // TODO: HACKS
                                         $ ( "#tbl_jobs tbody" ).append ( "<tr class='" + _class + "'><td><a href='" + window.location.protocol.toString ( ) + "//" + window.location.host.toString ( ) + "/job/" + field.id + "'>" + field.id + "</a></td><td>" + field.packageinstance.package.name + 
-"</td><td>" + field.packageinstance.package.version + "</td><td>" + field.packageinstance.arch.name + "</td><td>" + field.packageinstance.distribution.name + "/" +  field.packageinstance.suite.name + "</td>" + "<td><a href='" + window.location.protocol.toString ( ) + "//" + shortname + "/logs/pybitclient.log'>" + bname + "</a></td><td>" + jobstatuses [ field.id ] + "<br> Master Flag: " + field.packageinstance.master + "</td></tr>" );
+"</td><td>" + field.packageinstance.package.version + "</td><td>" + field.packageinstance.arch.name + "</td><td>" + field.packageinstance.distribution.name + "/" +  field.packageinstance.suite.name + "</td>" + "<td><a href='" + window.location.protocol.toString ( ) + "//" + shortname + "/logs/pybitclient.log'>" + bname + "</a></td><td>" + master + "</td><td>" + jobstatuses [ field.id ] + "</td></tr>" );
                                     }
                                     else
                                     {
-                                        _class = get_status_class ( "" );
+                                        _class = get_status_class ( jobstatuses [ field.id ] );
                                         bid = "";
                                         bname = "Unassigned";
                                         shortname = bname.replace ( "build_client_" , "" );
                                         // TODO: HACKS
                                         $ ( "#tbl_jobs tbody" ).append ( "<tr class='" + _class + "'><td><a href='" + window.location.protocol.toString ( ) + "//" + window.location.host.toString ( ) + "/job/" + field.id + "'>" + field.id + "</a></td><td>" + field.packageinstance.package.name + 
-"</td><td>" + field.packageinstance.package.version + "</td><td>" + field.packageinstance.arch.name + "</td><td>" + field.packageinstance.distribution.name + "/" +  field.packageinstance.suite.name + "</td><td>" + bname + "</td><td>" + jobstatuses [ field.id ] + "<br> Master Flag: " + field.packageinstance.master + "</td></tr>" );
+"</td><td>" + field.packageinstance.package.version + "</td><td>" + field.packageinstance.arch.name + "</td><td>" + field.packageinstance.distribution.name + "/" +  field.packageinstance.suite.name + "</td><td>" + bname + "</td><td>" + master + "</td><td>" + jobstatuses [ field.id ] + "</td></tr>" );
                                     }
                                 } );
                             } );
