@@ -59,6 +59,17 @@ class Controller(object):
 
 	def process_job(self, dist, architectures, version, name, suite, pkg_format, transport, commands = None) :
 		try:
+			# Look at blacklist, dont build excluded package names
+			if self.db.check_blacklist("name",name):
+				return False
+			# Look at blacklist, dont build packages from SVN paths which match the blacklist rule.
+			if self.db.check_blacklist("vcs_uri",transport.uri):
+				return False
+		except Exception as e:
+			print "Exception checking blacklist " + str(e)
+			return False
+
+		try:
 			build_arches = self.process_achitectures(architectures, suite)
 			if (len(build_arches) == 0):
 				response.status = "404 - no build architectures for this suite."

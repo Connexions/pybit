@@ -26,6 +26,7 @@ import psycopg2.extras
 import jsonpickle
 import cgi
 import math
+import re
 
 from pybit.models import Arch,Dist,Format,Status,Suite,BuildD,Job,Package,PackageInstance,SuiteArch,JobHistory, ClientMessage, checkValue
 
@@ -66,7 +67,7 @@ class Database(object):
 	def connect(self):
 		# for catbells
 		if (checkValue('password',self.settings)):
-			if (checkValue('hostname',self.settings)):
+			if (checkValue('hostname',self.settings) and checkValue('port',self.settings)):
 				# remote with password
 				print "REMOTE WITH PASSWORD"
 				self.conn = psycopg2.connect(database=self.settings['databasename'],
@@ -78,7 +79,7 @@ class Database(object):
 				self.conn = psycopg2.connect(database=self.settings['databasename'],
 				user=self.settings['user'], password=self.settings['password'])
 		else:
-			if (checkValue('hostname',self.settings)):
+			if (checkValue('hostname',self.settings) and checkValue('port',self.settings)):
 				# remote without password
 				print "REMOTE WITHOUT PASSWORD"
 				self.conn = psycopg2.connect(database=self.settings['databasename'],user=self.settings['user'], host=self.settings['hostname'],port=self.settings['port'])
@@ -851,8 +852,9 @@ class Database(object):
 			jobs = []
 			for i in res:
 				jobs.append(self.get_job(i['job_id']))
-			return jobs
 			cur.close()
+			return jobs
+
 		except psycopg2.Error as e:
 			self.conn.rollback()
 			raise Exception("Error retrieving unfinished jobs. Database error code: "  + str(e.pgcode) + " - Details: " + str(e.pgerror))
@@ -898,14 +900,21 @@ class Database(object):
 	def delete_job(self,job_id):
 		try:
 			cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-			cur.execute("DELETE FROM jobstatus WHERE job_id=%s  RETURNING id",(job_id,))
-			self.conn.commit()
-			cur.execute("DELETE FROM job WHERE id=%s  RETURNING id",(job_id,))
+			cur.execute("WITH latest_status AS (SELECT DISTINCT ON (job_id) job_id, status.name FROM jobstatus LEFT JOIN status ON status_id=status.id WHERE job_id=%s ORDER BY job_id, time DESC) SELECT job_id, name FROM latest_status WHERE name!='Building'",(job_id,))
 			res = cur.fetchall()
 			self.conn.commit()
-			if res[0]['id'] == job_id:
-				cur.close()
-				return True
+			if len(res) > 0:
+				cur.execute("DELETE FROM jobstatus WHERE job_id=%s RETURNING id",(job_id,))
+				self.conn.commit()
+				cur.execute("DELETE FROM job WHERE id=%s  RETURNING id",(job_id,))
+				res = cur.fetchall()
+				self.conn.commit()
+				if res[0]['id'] == job_id:
+					cur.close()
+					return True
+				else:
+					cur.close()
+					return False
 			else:
 				cur.close()
 				return False
@@ -1307,4 +1316,28 @@ class Database(object):
 		except psycopg2.Error as e:
 			self.conn.rollback()
 			raise Exception("Error retrieving supported architectures for:" + suite + ". Database error code: "  + str(e.pgcode) + " - Details: " + str(e.pgerror))
+			return None
+
+	def check_blacklist(self,field,value):
+		try:
+			cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+			cur.execute("SELECT id,field,regex FROM blacklist WHERE field=%s",[field])
+			res = cur.fetchall()
+			self.conn.commit()
+
+			for i in res:
+				# Check passed in value using i.regex - Search() or Match() ?
+				match = re.search(i['regex'], value) # An invalid regexp will throw an exception here. Valid regexp is i.e: name field and (.*-dev) or vcs_uri field and (.*/users/*)
+				if match is not None:
+					print "BLACKLISTED!" + str(i['regex']) + " matches " + str(field) + ":" + str(value)
+					cur.close()
+					return True
+				else:
+					cur.close()
+					return False
+
+			return blacklists
+		except psycopg2.Error as e:
+			self.conn.rollback()
+			raise Exception("Error retrieving blacklist. Database error code: "  + str(e.pgcode) + " - Details: " + str(e.pgerror))
 			return None
